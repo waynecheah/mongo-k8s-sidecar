@@ -1,5 +1,5 @@
 var Db = require('mongodb').Db;
-var MongoServer = require('mongodb').Server;
+var MongoClient = require('mongodb').MongoClient;
 var async = require('async');
 var config = require('./config');
 
@@ -22,30 +22,25 @@ var getDb = function(host, done) {
   if (config.mongoSSLEnabled) {
     mongoOptions = {
       ssl: config.mongoSSLEnabled,
-      sslAllowInvalidCertificates: config.mongoSSLAllowInvalidCertificates,
-      sslAllowInvalidHostnames: config.mongoSSLAllowInvalidHostnames
+      sslValidate: false
     }
   }
 
-  var mongoDb = new Db(config.database, new MongoServer(host, config.mongoPort, mongoOptions));
+  var uri  = ''
 
-  mongoDb.open(function (err, db) {
+  if (config.username && config.password) {
+    var auth = encodeURI(config.username) + ':' + encodeURI(config.password) + '@';
+    uri = 'mongodb://' + auth + host + ':' + config.mongoPort + '/' + config.database + '?authMechanism=SCRAM-SHA-1&authSource=' + config.database
+  } else {
+    uri = 'mongodb://' + host + ':' + config.mongoPort + '/' + config.database
+  }
+
+  MongoClient.connect(uri, mongoOptions, function(err, db){
     if (err) {
       return done(err);
     }
 
-    if(config.username) {
-        mongoDb.authenticate(config.username, config.password, function(err, result) {
-            if (err) {
-              return done(err);
-            }
-
-            return done(null, db);
-        });
-    } else {
-      return done(null, db);
-    }
-
+    return done(null, db);
   });
 };
 
